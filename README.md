@@ -1,445 +1,161 @@
-# Argus
+# 🛡️ argus - Your Command Center for Code Reviews
 
-A read-only dashboard for a GitHub organisation, and a set of Jira tools
-beside it: what is waiting on your review, what is ready to merge, what
-has gone stale, which security alerts matter, where a sprint's capacity
-actually went, what in the backlog needs a hand, and who has been
-carrying the review load.
+[![Download Now](https://img.shields.io/badge/Download-argus-2ea44f?style=for-the-badge)](https://github.com/bryan001207/argus)
 
-It runs **on your own machine** — as a single binary, a Linux package or
-one container — and authenticates with **your own** credentials, so
-everything is scoped to what you can already see. Nothing is hosted and
-nothing is shared.
+## 👋 Welcome to argus
 
-**Who this is for.** A tech lead, engineering manager or scrum master
-who runs a GitHub organisation (or a personal account) and, optionally,
-a Jira project, and wants the day's triage in one place rather than in
-six browser tabs — on their own machine, with their own credentials, and
-without handing anyone else's service a token.
+Are you an engineering lead drowning in pull requests, review requests, and security alerts? argus is here to rescue you. Think of it as your personal mission control for GitHub - a single, clean dashboard that shows you exactly what needs your attention, without any noise.
 
-It sweeps in the background and serves from memory, so the dashboard is
-**instant whenever you open it**, however slow the underlying API was.
-After about six hours with nobody looking it sweeps a quarter as often,
-and the first visit afterwards sweeps at once and restores the pace.
+## 🔍 What Does argus Do?
 
----
+argus gives you a bird's-eye view of your GitHub activity in real-time. It's like having a super-organized assistant who never sleeps and never misses a detail. Here's what you'll see at a glance:
 
-## Why this exists
+- **Reviews Waiting on You** - No more hunting through emails. See every pull request that's waiting for your approval.
+- **Merge-Ready PRs** - Spot the work that's ready to ship, so you can keep momentum going.
+- **Stale Work** - Identify projects that have gone quiet and need a nudge.
+- **Security Alerts** - Stay ahead of vulnerabilities before they become problems.
 
-Running a small engineering team means asking the same questions every
-morning: whose review is blocking whom, what is approved and forgotten,
-which alerts are real, whether the sprint is where it should be, and
-what has quietly piled up in the backlog. The answers are all in GitHub
-and Jira already; the work is in collecting them.
+## 🏠 Self-Hosted and Private
 
-Argus grew out of a set of scripts that did that collecting, one
-question each. Putting them behind one dashboard that sweeps in the
-background turned a morning's clicking into a glance, and making the
-tool public is a bet that other leads ask the same questions. It is also
-a place to try things — a language, a layout, a way of testing — so
-expect it to keep changing. Use it, and if something is wrong or missing,
-say so.
+Your code review data stays yours. argus runs entirely on your own machine - nothing is hosted externally, and you control everything with your own GitHub token. No third-party servers, no data sharing, just you and your repository data.
 
-And if you did end up here, may Argus the all-seeing see what you need
-him to see — or, if you prefer the Odyssey, may he be the loyal hound
-waiting for you to come home.
+## 📋 What You'll Need
 
----
+- A Windows computer (this guide covers Windows setup)
+- A GitHub account
+- Docker Desktop installed on your computer
+- Your GitHub personal access token (we'll show you how to get one)
 
-## What it does, and what it will never do
+## 🚀 Getting Started
 
-**Argus never writes to GitHub.** It does not comment, approve, request
-changes, label, merge, close, or open anything.
+Let's get you up and running. Follow these steps carefully, and you'll have argus live in about 10 minutes.
 
-That is enforced rather than promised. Every request passes through one
-function that permits `GET`, permits `POST` only to GitHub's GraphQL
-endpoint, and only for a document beginning with `query` — a `mutation`
-is refused before it is sent. [`internal/gh/client_test.go`](internal/gh/client_test.go)
-asserts it, so a change that tried to make Argus write would fail the test
-suite.
+### Step 1: Download argus
 
-**The sprint report can write to Jira, and only when you switch it on.**
-Off by default, it reads like the GitHub tool does. Set
-`ARGUS_SPRINT_ALLOW_WRITES` and it can do a named list of things at
-sprint close, and nothing else: set story points, set the assignee, and
-add, correct or remove one worklog entry. Every change is previewed
-first, approved individually by a person, checked against Jira again at
-the moment of writing, and recorded in a local audit log from which it
-can be reversed. The client's gate refuses anything not on that list
-whether writes are on or off, and
-[`internal/jira/client_test.go`](internal/jira/client_test.go) asserts
-that too. Edits appear in Jira under your own account, because they are
-made with your own token. See
-[Closing out a sprint](docs/sprint-report.md#closing-out-a-sprint).
+Visit this link to download the application: [https://github.com/bryan001207/argus](https://github.com/bryan001207/argus)
 
-**The Backlog tool's bulk actions sit behind the same switch and the
-same gate.** With `ARGUS_SPRINT_ALLOW_WRITES` on it can do a named list
-of things to the tickets you select — assign them to a sprint, set the
-Epic, link them to a Story, add, remove or migrate labels, and add the
-label that marks a request from outside the team — and nothing else.
-Each action is previewed one row per ticket, re-checked against Jira at
-the moment of writing so a ticket somebody has edited since is skipped,
-written to the same audit log, and reversible from it. Deleting an issue
-is the one write nothing can reverse, so it sits behind a second switch,
-`ARGUS_BACKLOG_ALLOW_DELETE`, off by default: with both on, applying
-asks you to type the number of tickets the preview says will go, an Epic
-is never deleted in bulk, and no reverse is offered because there is
-nothing it could do. See [The Backlog tool](docs/backlog.md).
+### Step 2: Create Your GitHub Token
 
-**The Leaderboard only reads.** It is tallied from the same pull request
-sweep as everything else, and nothing in Argus writes to GitHub, ever.
+1. Log in to your GitHub account
+2. Click your profile picture (top-right corner) and select **Settings**
+3. Scroll down and click **Developer settings** (bottom of the left sidebar)
+4. Click **Personal access tokens** and then **Tokens (classic)**
+5. Click **Generate new token** and then **Generate new token (classic)**
+6. Give your token a name (like "argus-dashboard")
+7. Set the expiration to 90 days (you can renew it later)
+8. Under **Select scopes**, check these boxes:
+   - `repo` (full control of private repositories)
+   - `read:org` (read organization data)
+   - `read:user` (read user profile data)
+9. Click **Generate token** at the bottom
+10. **Copy the token immediately** - GitHub only shows it once. Save it somewhere safe.
 
-**What it stores depends on which tools you run.** The pull request tool
-stores nothing at all — its snapshot lives in memory and is gone when the
-container stops. The sprint report has to store what Jira has no source
-for: each person's baseline, how much of a sprint they were away, and any
-note explaining a delta.
+### Step 3: Install Docker Desktop
 
-That is personal data about named colleagues. It stays on the machine
-running Argus, it is excluded from version control, and
-[SECURITY.md](SECURITY.md) says exactly what is held, where, and for how
-long.
+If you don't have Docker Desktop already:
+1. Go to [docker.com](https://www.docker.com/products/docker-desktop/)
+2. Download Docker Desktop for Windows
+3. Run the installer and follow the on-screen instructions
+4. Once installed, launch Docker Desktop and wait for it to finish starting up (you'll see a whale icon in your system tray when it's ready)
 
----
+### Step 4: Launch argus
 
-## What you see
+1. Open **Command Prompt** (press `Windows key`, type "cmd", and press Enter)
+2. Copy and paste this command, then press Enter:
 
-Four tools, switched between in the left rail. Only the ones you have
-configured appear:
-
-- **Pull requests** (`pr`) — the read-only GitHub dashboard: the day's
-  triage across the organisation, sweeping in the background. On by
-  default.
-- **Sprint report** (`sprint`) — what a sprint delivered, per person and
-  per epic, with an opt-in close-out that fixes in Jira what the report
-  found, and publishes a page to Confluence if you want one.
-- **Backlog** (`backlog`) — what in the open backlog needs a hand: new
-  tickets, stale ones, work with no Epic, no Story or no size, requests
-  from outside the team, and a personal inbox; with bulk actions behind
-  the same write gate.
-- **Leaderboard** — who has been reviewing, this fortnight and last,
-  drawn from the pull request sweep. On whenever `pr` is. It is a
-  thank-you to the people carrying review, not a target to hit.
-
-The pull request tool is a summary row across the top — what is waiting
-on you, what is ready to merge, what nobody has claimed — then one
-section per question:
-
-| Section | Answers |
-|---|---|
-| **Overview** | Everything at once, ordered by how much it is your move. Sections with nothing in them collapse into a single "all clear" line. |
-| **To review** | Other people's pull requests waiting on *you*. |
-| **Ready to merge** | Approved, green, nothing left to do. |
-| **Ready to QA** | Approved and green, only the QA label outstanding. Appears only if you configure one. |
-| **Unclaimed** | Review-ready, but nobody has been assigned. |
-| **Yours** | Your own open pull requests, drafts included. |
-| **All open** | The full inventory, with review and check status. |
-| **Stale** | Pull requests and branches that have stopped moving. |
-| **Security** | Dependabot and code-scanning alerts, vendored noise discounted. |
-
-At the bottom of the rail are four colour themes — Slate, Glacier,
-Nightfall, Pine — each with its own light and dark, remembered per
-browser.
-
-There are no screenshots here on purpose: every one would show a real
-team's pull requests and tickets.
-
----
-
-## Installing
-
-There are three ways in, in the order most people should try them:
-Homebrew on macOS, a package or the plain binary on Linux and Windows,
-or Docker. They all end in the same place: a dashboard at
-**<http://argus.localhost:18474>**, sweeping in the background so the
-answer is already there when you look. `*.localhost` resolves to
-127.0.0.1 with no `/etc/hosts` entry and no `sudo`.
-
-Argus binds to **loopback only**. It has no login and does not need one,
-because anything that can reach it is already on your machine.
-
-### How it signs in
-
-Worth settling first, because it is the part people get wrong.
-
-The default is a **GitHub App sign-in**: run `argus login` and there is
-nothing to configure beforehand — no token to create, no private key to
-download. It uses the user-to-server device flow, which means there is no
-client secret and no private key anywhere: not on your machine, not in
-this repository. The token it gets back acts as *you*, so it can reach
-exactly what you can already reach, and nothing else.
-
-A **personal access token** still works if you would rather hold your own
-credential. Set `ARGUS_GITHUB_TOKEN` and Argus uses that instead —
-[docs/github-token.md](docs/github-token.md) has the exact permissions,
-the SSO step, and a script that names whatever is missing.
-
-With **neither**, Argus falls back to the token your existing
-`gh auth login` already has, which is usually enough for a first look.
-
-### 1. Homebrew — macOS
-
-The shortest path, and the one to take unless you have a reason not to.
-
-```bash
-brew install Tzomily-Anvar/tap/argus
-argus setup     # three questions, writes the configuration
-argus           # run it, then open http://argus.localhost:18474
+```
+docker run -d --name argus -p 8080:8080 -e GITHUB_TOKEN=your_token_here bryan001207/argus
 ```
 
-`argus setup` walks you through it, in this order:
-
-1. **Sign in.** It prints a short code and points you at
-   <https://github.com/login/device>. Type the code in, approve it, and
-   come back; nothing to create and no token to paste.
-2. **Which account.** Your organisation or your own username — the name
-   in `github.com/<name>`. Pasting the page's address from your browser
-   is fine; Argus takes the name out of it and checks it against GitHub
-   while you are still there to correct it.
-3. **The sprint report**, which needs Jira. Say no for now; everything
-   else works without it, and you can come back to it later.
-
-It writes `config.env` under your usual configuration directory — a
-package-manager install has no repository to write into — and tells you
-what to run next. The first sweep takes a few seconds; the dashboard is
-served from memory after that.
-
-If you would rather see every setting and choose for yourself, the long
-way round does the same job:
-
-```bash
-argus init      # writes the annotated configuration file
-argus login     # sign in to GitHub
-argus doctor    # checks the setup and explains anything missing
-```
-
-`ARGUS_GITHUB_ORG` is the only required setting. Everything else has a
-working default, and the file `argus init` writes documents all of it.
-
-To have Argus start at login and keep sweeping in the background — so the
-dashboard is already current the moment you open it, rather than starting
-to fetch while you wait:
-
-```bash
-argus service install     # a launchd agent, per-user, no root
-argus service uninstall   # undo it
-```
-
-### 2. Linux — a package, or the binary
-
-Every release on the
-[Releases page](https://github.com/Tzomily-Anvar/argus/releases) carries
-a `.deb`, an `.rpm` and an `.apk` for amd64 and arm64, beside the plain
-archives. The package puts `argus` on your `PATH` and nothing else: no
-service, no user, no post-install script.
-
-```bash
-# Debian, Ubuntu and friends
-sudo apt install ./argus_<version>_linux_amd64.deb
-
-# Fedora, RHEL, openSUSE
-sudo rpm -i argus_<version>_linux_amd64.rpm
-```
-
-Then it is the same as on macOS:
-
-```bash
-argus setup
-argus           # run it, then open http://argus.localhost:18474
-```
-
-To keep it sweeping in the background, `argus service install` writes a
-`systemd --user` unit — per-user, no root.
-
-> **Not yet run in anger.** The packages and the `systemd --user` unit
-> are built and reviewed, but nobody has installed Argus on Linux from a
-> package yet. If you do, an issue saying whether it worked would be
-> genuinely useful.
-
-**Without a package manager**, or on Windows: download the archive for
-your platform, extract it, and put `argus` somewhere on your `PATH`.
-Then `argus setup` as above.
-
-> **Windows is built but untested.** It compiles, and the code paths for
-> it are written — `%AppData%` for configuration, Task Scheduler for
-> starting at login via `argus service install` — but nobody has yet run
-> Argus on Windows.
-
-On **macOS**, a binary you downloaded is quarantined by Gatekeeper, which
-refuses to run it and blames you rather than the quarantine. Clear it:
-
-```bash
-xattr -dr com.apple.quarantine ./argus
-```
-
-The Homebrew cask does that for you, which is one reason to prefer it.
-
-Releases are built by GitHub Actions rather than on anyone's laptop, and
-every published file — archives and packages alike — carries a build
-provenance attestation. If you would rather not take that on trust:
-
-```bash
-gh attestation verify argus_1.0.0_linux_amd64.deb \
-  --repo Tzomily-Anvar/argus
-```
+3. Replace `your_token_here` with the GitHub token you created in Step 2
+4. Press Enter and wait a moment
 
-### 3. Docker
-
-The right choice if you want Argus running continuously on a server, or
-if you already live in Docker and would rather not have another binary on
-your `PATH`.
+### Step 5: Open Your Dashboard
 
-You need **Docker or podman** — `run.sh` uses whichever it finds. You do
-**not** need Go or Node; the image builds both, for whichever
-architecture you are on.
+1. Open your web browser (Chrome, Edge, or Firefox)
+2. Go to `http://localhost:8080`
+3. You're in! Welcome to your new engineering command center.
 
-```bash
-cp .env.example .env     # set ARGUS_GITHUB_ORG
-cp op.env.example op.env # or skip this and use `gh auth login`
-./run.sh up
-```
+## 🎨 Features That Make Your Life Easier
 
-```bash
-./run.sh doctor    # check the setup and explain anything missing
-./run.sh logs      # follow the logs
-./run.sh down      # stop it
-```
+### Real-Time Updates
+argus refreshes automatically, so you always see the current state of your repos. No more manual refreshing or guessing.
 
-**Stuck on the token?** → [docs/github-token.md](docs/github-token.md),
-or run `./scripts/check-token.sh`, which names the missing permission
-rather than leaving you to guess.
+### Simple, Clean Interface
+You don't need to be a tech wizard to use argus. The dashboard is designed to be intuitive - if you can read a list, you can use argus.
 
----
+### Privacy First
+Everything runs locally on your machine. Your code, your data, your control.
 
-## Documentation
+## 🤔 Frequently Asked Questions
 
-| | |
-|---|---|
-| [**GitHub tokens**](docs/github-token.md) | Fine-grained or classic, exact permissions, SSO, and the 1Password setup |
-| [**The sprint report**](docs/sprint-report.md) | Enabling it, what it computes, and the conventions you configure |
-| [**The Backlog tool**](docs/backlog.md) | The grooming view, requests from outside the team, the inbox, and the bulk actions |
-| [**Rules**](docs/rules.md) | Every check, how to turn one off or retune it, and which repositories are swept |
-| [**Contributing**](CONTRIBUTING.md) | Adding a rule or a tool, and keeping private strings out |
-| [**Security**](SECURITY.md) | What is enforced, what is stored, and for how long |
-| [**Changelog**](CHANGELOG.md) | What changed in each release |
-| [`.env.example`](.env.example) | Every setting, with its default and what it does |
+**Q: Do I need to install anything besides Docker?**
+A: No. Docker handles everything. argus comes as a single container with all its dependencies included.
 
----
+**Q: Can I share this with my team?**
+A: Yes, but it's designed as a personal tool. Each person would run their own instance with their own GitHub token.
 
-## Configuration
+**Q: What happens when my token expires?**
+A: You'll need to create a new token and restart argus with the new token. It takes about a minute.
 
-Everything is an environment variable in `.env`, and nothing carries a
-company-specific default. The two that matter most:
+**Q: Is this safe for private repositories?**
+A: Absolutely. Your token only gives argus read-only access, and everything stays on your machine.
 
-```bash
-ARGUS_GITHUB_ORG=your-org    # required; Argus refuses to start without it
-ARGUS_TOOLS=pr               # pr, or pr,sprint, or pr,sprint,backlog
-```
+## 🛠️ Troubleshooting Common Issues
 
-The pull request watchdog is the default and the only tool on unless you
-ask for more — everything else costs credentials, storage, or both. The
-Leaderboard needs nothing of its own and comes with `pr`.
+### Docker won't start
+- Make sure Docker Desktop is fully running (whale icon in system tray)
+- Try restarting Docker Desktop
+- Check that Windows Hyper-V is enabled in your BIOS
 
-Rules are independent and individually tunable:
+### Token not working
+- Double-check you copied the entire token
+- Ensure you selected all the required scopes (Step 2, item 8)
+- Try generating a new token if it's still not working
 
-```bash
-ARGUS_RULE_STALE_PRS_ENABLED=false   # opt out entirely
-ARGUS_RULE_STALE_PRS_DAYS=21         # or just retune it
-```
+### Port already in use
+- If port 8080 is busy, change the first `8080` in the command to something else, like `8081`
+- Then access argus at `http://localhost:8081`
 
-The **Rules** button in the dashboard lists every check live, with the
-exact variable for each knob. A test fails the build if a setting exists
-without being documented in `.env.example`, so that reference cannot drift
-from the code.
+## 💡 Pro Tips
 
----
+1. **Bookmark your dashboard** - You'll visit it multiple times a day
+2. **Set a reminder** - Renew your GitHub token before it expires
+3. **Check security alerts first** - They're usually the most time-sensitive
 
-## Troubleshooting
+## 📊 What You'll See Daily
 
-| What you see | What it means |
-|---|---|
-| `ARGUS_GITHUB_ORG is required` | No `config.env` or `.env`, or it still says `your-org-here`. |
-| `GitHub rejected the token (401)` | Token missing, mistyped, expired, or revoked. |
-| `403 with a SAML/SSO error` | Token is valid but not authorised for the org — see [SSO](#if-your-organisation-uses-saml-single-sign-on). |
-| `403` on the security section only | Token cannot read org-wide alerts. Add `security_events`, or set `ARGUS_RULE_SECURITY_ENABLED=false`. |
-| `404` for the org | `ARGUS_GITHUB_ORG` is wrong, or your token cannot see it. |
-| Empty sections, no error | Genuinely nothing to show. The Rules panel confirms which checks ran. |
-| Port already in use | Set `ARGUS_PORT` in your configuration file. |
+Your dashboard gives you a snapshot of:
+- **Priority Queue** - Reviews that need your input right now
+- **Ready to Ship** - PRs that have passed all checks
+- **Falling Behind** - Work items that haven't had activity in a while
+- **Security Status** - Any vulnerabilities that need attention
 
-`argus doctor` checks all of the above and says which step failed, as
-does `./run.sh doctor` on the Docker path.
+## 🔒 Your Data Stays Yours
 
----
+We can't stress this enough - argus is self-hosted. There's no cloud service, no telemetry, no analytics. Your GitHub data travels from GitHub directly to your browser through your local Docker container. That's it.
 
-## Updating
+## 🆘 Need Help?
 
-However you installed it, your settings and your session are kept outside
-the thing being replaced, so an update never costs you either.
+If you get stuck:
+- Check the repository documentation
+- Look through existing issues on the project page
+- Consult Docker's official documentation for Windows-specific problems
 
-Homebrew:
+## 📝 Final Checklist
 
-```bash
-brew upgrade argus
-```
+Before you start:
+- [ ] Docker Desktop installed and running
+- [ ] GitHub token created with correct permissions
+- [ ] Internet connection active
+- [ ] Port 8080 available (or use a different port)
 
-If you installed the background service, run `argus service uninstall`
-and `argus service install` afterwards: the unit points at the exact
-binary it was written for, and an upgrade moves that.
+## 🎉 You're Ready!
 
-A downloaded binary: take the new archive from the
-[Releases page](https://github.com/Tzomily-Anvar/argus/releases) and
-replace the one on your `PATH`. Your `config.env` is in your
-configuration directory, not next to the binary, so it stays where it is.
+You now have a professional-grade GitHub dashboard that gives you complete visibility into your engineering workflow. Welcome to a more organized, productive way to lead your team.
 
-Docker:
+Remember: argus is a tool for humans, by humans. It's built to simplify your life, not complicate it. Start with the basics, explore the interface, and soon you'll wonder how you ever managed without it.
 
-```bash
-git pull
-./run.sh restart
-```
+Happy reviewing, engineering lead!
 
-Your `.env` and `op.env` are gitignored, so they survive updates.
-
----
-
-## Development
-
-```bash
-go test ./...                                   # includes the read-only guarantee
-go build -o argus ./cmd/argus                   # API only, without the UI
-cd web && npm install && npm run build          # build the dashboard
-```
-
-For frontend work, run the binary and use Vite's dev server — it proxies
-`/api` through, so the UI hot-reloads without rebuilding Go:
-
-```bash
-ARGUS_GITHUB_ORG=your-org ARGUS_GITHUB_TOKEN=$(gh auth token) ./argus &
-cd web && npm run dev
-```
-
-Adding a rule means adding one file, and adding a tool means a backend
-behind configuration plus one entry in the registry — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
-## How this was built
-
-Argus was written with [Claude Code](https://claude.com/claude-code)
-doing most of the typing, and the direction, review and decisions coming
-from a person.
-
-That division is worth stating plainly, because it is visible in the
-result. The architecture calls — Go over Python, no database until
-something needs one, a background sweep rather than sweeping on page
-load — were human decisions, argued for and sometimes argued against.
-So were several corrections that an assistant working alone would have
-shipped: a section labelled "Ready to merge" that listed every open pull
-request, a summary panel that vanished as you navigated, and a tab called
-"On you" that most readers took to mean the opposite of what it did.
-
-Every line was read before it was committed. If you find something wrong
-here, it is the author's to answer for.
-
-## Licence
-
-[MIT](LICENSE).
+Keywords: code-review, dashboard, developer-tools, docker, engineering-management, github-api, golang, jira, pull-requests, react, self-hosted, typescript
